@@ -6,3 +6,4 @@ Simply supply the program with a SetupAudit Trail and it will use intelligent pa
 This kind of a report can prove to be quite beneficial, while doing release management.
 
 
+# ![SATParser](http://graclabs.com/Images/satparser-screenshot.jpg)
