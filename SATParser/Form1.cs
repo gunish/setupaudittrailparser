@@ -41,18 +41,31 @@ namespace SATParser
                 localSAT = FindNewLineCharacters(localSAT);
                 LogMessage("Setup Audit Trail Loaded");
                 LogMessage("Setup Audit Train has " + localSAT.Rows.Count.ToString() + " Rows");
+                SetFilters();
+            }
+           
+        }
 
-                ProcessSATRecords();
+        private void SetFilters()
+        {
+            DataRow[] localRows = localSAT.Select(null, "Date", DataViewRowState.CurrentRows);
+            dateTimePicker1.MinDate = Convert.ToDateTime(localRows[0]["Date"].ToString());
+            dateTimePicker1.MaxDate = Convert.ToDateTime(localRows[localRows.Length - 1]["Date"].ToString());
+            dateTimePicker2.MinDate = Convert.ToDateTime(localRows[0]["Date"].ToString());
+            dateTimePicker2.MaxDate = Convert.ToDateTime(localRows[localRows.Length - 1]["Date"].ToString());
 
-                DialogResult dr = saveFileDialogSAT.ShowDialog();
-                if (dr == DialogResult.OK)
-                {
-                    WriteToCsvFile(updatedSAT, saveFileDialogSAT.FileName);
-                }
+            dateTimePicker1.Value = Convert.ToDateTime(localRows[0]["Date"].ToString());
+            dateTimePicker2.Value = Convert.ToDateTime(localRows[localRows.Length - 1]["Date"].ToString());
 
-                MessageBox.Show("File Saved!");
+            DataTable tempTable = localSAT.DefaultView.ToTable(true, "User");
+
+            foreach (DataRow itemRow in tempTable.Rows)
+            {
+                checkedListBox1.Items.Add(itemRow[0].ToString());
             }
 
+            LogMessage("The Setup Audit Trail Has Log Start Date : " + localRows[0]["Date"].ToString() + " and End Date :" + localRows[localRows.Length - 1]["Date"].ToString());
+            LogMessage("The Setup Audit Trail has Events with :" + tempTable.Rows.Count.ToString() + " users");
         }
 
         public void WriteToCsvFile(DataTable dataTable, string filePath)
@@ -245,52 +258,89 @@ namespace SATParser
             
             foreach (DataRow sourceRow in localSAT.Rows)
             {
-                returnValues objReturnValues = removeFaaf(sourceRow["Action"].ToString().Replace("'", ""),sourceRow["Section"].ToString());
+                Boolean flagDate = false;
+                Boolean flagUser = false;
+                flagDate = CheckDate(sourceRow["Date"].ToString());
+                flagUser = CheckUser(sourceRow["User"].ToString());
 
-                string sourceRowAction = objReturnValues.p;
-                string objectName = objReturnValues.o;
-
-                Boolean flag = false;
-
-                DataRow[] SATRows = updatedSAT.Select("Action = '" + sourceRowAction + "'");
-
-
-                //foreach (DataRow targetRow in updatedSAT.Rows)
-                //{
-                //    string targetRowAction = targetRow["Action"].ToString().ToLower();  
-                    
-                //    if (!(targetRowAction == sourceRowAction))
-                //    {
-                //        flag = true;
-                //        //break;
-                //    }
-                //}
-
-                if (SATRows.Length == 0)
-                    flag = true;
-
-                if (updatedSAT.Rows.Count == 0)
-                    flag = true;
-                     
-                if (flag)
+                if (flagDate && flagUser)
                 {
-                    DataRow newRow = updatedSAT.NewRow();
-                    newRow["Date"] = sourceRow["Date"];
-                    newRow["User"] = sourceRow["User"];
-                    newRow["Action"] = sourceRowAction;
-                    newRow["Section"] = sourceRow["Section"];
-                    newRow["Delegate User"] = sourceRow["Delegate User"];
-                    newRow["Object"] = objectName;
-                    if (newRow["Section"].ToString() != "Manage Users" && newRow["Section"].ToString() != "Data Management")
-                    {
-                        updatedSAT.Rows.Add(newRow);
-                    }
 
+                    returnValues objReturnValues = removeFaaf(sourceRow["Action"].ToString().Replace("'", ""), sourceRow["Section"].ToString());
+
+                    string sourceRowAction = objReturnValues.p;
+                    string objectName = objReturnValues.o;
+
+                    Boolean flag = false;
+
+                    DataRow[] SATRows = updatedSAT.Select("Action = '" + sourceRowAction + "'");
+
+                    if (SATRows.Length == 0)
+                        flag = true;
+
+                    if (updatedSAT.Rows.Count == 0)
+                        flag = true;
+
+                    if (flag)
+                    {
+                        DataRow newRow = updatedSAT.NewRow();
+                        newRow["Date"] = sourceRow["Date"];
+                        newRow["User"] = sourceRow["User"];
+                        newRow["Action"] = sourceRowAction;
+                        newRow["Section"] = sourceRow["Section"];
+                        newRow["Delegate User"] = sourceRow["Delegate User"];
+                        newRow["Object"] = objectName;
+                        if (newRow["Section"].ToString() != "Manage Users" && newRow["Section"].ToString() != "Data Management")
+                        {
+                            updatedSAT.Rows.Add(newRow);
+                        }
+
+                    }
                 }
             }
 
             LogMessage("Finished Processing Unique Rows, Rows Reduced to : " + updatedSAT.Rows.Count.ToString() + " rows");
             dataGridViewSAT.DataSource = updatedSAT; 
+        }
+
+        private bool CheckUser(string p)
+        {
+            Boolean returnValue = false;    
+            if (!checkBox2.Checked)
+            {
+                foreach (var item in checkedListBox1.SelectedItems)
+                {
+                    if (p == item.ToString())
+                    {
+                        returnValue = true;
+                    }
+                }
+            }
+            else
+            {
+                returnValue = true;
+            }
+
+            return returnValue;
+        }
+
+        private bool CheckDate(string p)
+        {
+            Boolean returnValue = false;
+
+            if (!checkBox1.Checked)
+            {
+                if (Convert.ToDateTime(p) >= dateTimePicker1.Value && Convert.ToDateTime(p) <= dateTimePicker2.Value)
+                {
+                    returnValue = true;
+                }
+            }
+            else
+            {
+                returnValue = true;
+            }
+
+            return returnValue;
         }
 
         public DataTable GetDataTable(string filePath)
@@ -312,6 +362,55 @@ namespace SATParser
 
             public returnValues()
             {
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            ProcessSATRecords();
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            DialogResult dr = saveFileDialogSAT.ShowDialog();
+            if (dr == DialogResult.OK)
+            {
+                WriteToCsvFile(updatedSAT, saveFileDialogSAT.FileName);
+            }
+
+            MessageBox.Show("File Saved!");
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            if (checkBox1.Checked)
+            {
+                dateTimePicker1.Enabled = false;
+                dateTimePicker2.Enabled = false;
+            }
+            else
+            {
+                dateTimePicker1.Enabled = true;
+                dateTimePicker2.Enabled = true;
+            }
+        }
+
+        private void checkBox2_CheckedChanged(object sender, EventArgs e)
+        {
+            if (checkBox2.Checked)
+            {
+                checkedListBox1.Enabled = false;
+                //dateTimePicker2.Enabled = false;
+            }
+            else
+            {
+                checkedListBox1.Enabled = true;
+                //dateTimePicker2.Enabled = true;
             }
         }
     }
